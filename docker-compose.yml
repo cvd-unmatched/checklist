@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  checklist:
+    image: ghcr.io/cvd-unmatched/checklist:latest
+    container_name: checklist-app
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - DB_HOST=${DB_HOST:-localhost}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_USER=${DB_USER:-root}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME:-checklist}
+      - APP_PASSWORD=${APP_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - LOGGING=${LOGGING:-OFF}
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8080/api/status', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
