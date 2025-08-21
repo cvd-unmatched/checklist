@@ -35,6 +35,7 @@ async function connectDB() {
         name VARCHAR(255) NOT NULL,
         start_date DATE NULL,
         end_date DATE NULL,
+        country VARCHAR(2) NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -90,7 +91,7 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/lists', requireAuth, async (_req, res) => {
   try {
     const [rows] = await db!.query(
-      'SELECT id, name, start_date, end_date FROM lists ORDER BY (start_date IS NULL), start_date DESC, id DESC'
+      'SELECT id, name, start_date, end_date, country FROM lists ORDER BY (start_date IS NULL), start_date DESC, id DESC'
     );
     res.json(rows);
   }
@@ -99,35 +100,35 @@ app.get('/api/lists', requireAuth, async (_req, res) => {
 
 app.post('/api/lists', requireAuth, async (req, res) => {
   try {
-    const { name, startDate, endDate } = req.body;
+    const { name, startDate, endDate, country } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
     if (startDate && endDate && endDate < startDate) {
       return res.status(400).json({ error: 'End date cannot be before start date' });
     }
-    const [result] = await db!.execute('INSERT INTO lists (name, start_date, end_date) VALUES (?, ?, ?)', [name, startDate || null, endDate || null]);
-    res.json({ id: (result as any).insertId, name, startDate, endDate });
+    const [result] = await db!.execute('INSERT INTO lists (name, start_date, end_date, country) VALUES (?, ?, ?, ?)', [name, startDate || null, endDate || null, country || null]);
+    res.json({ id: (result as any).insertId, name, startDate, endDate, country });
   } catch { res.status(500).json({ error: 'Database error' }); }
 });
 
 app.put('/api/lists/:id', requireAuth, async (req, res) => {
   try {
     const listId = Number(req.params.id);
-    const { name, startDate, endDate } = req.body;
+    const { name, startDate, endDate, country } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
     if (startDate && endDate && endDate < startDate) {
       return res.status(400).json({ error: 'End date cannot be before start date' });
     }
-    await db!.execute('UPDATE lists SET name = ?, start_date = ?, end_date = ? WHERE id = ?', [name, startDate || null, endDate || null, listId]);
-    res.json({ id: listId, name, startDate, endDate });
+    await db!.execute('UPDATE lists SET name = ?, start_date = ?, end_date = ?, country = ? WHERE id = ?', [name, startDate || null, endDate || null, country || null, listId]);
+    res.json({ id: listId, name, startDate, endDate, country });
   } catch { res.status(500).json({ error: 'Database error' }); }
 });
 
 app.post('/api/lists/:id/copy', requireAuth, async (req, res) => {
   try {
     const listId = Number(req.params.id);
-    const [[list]]: any = await db!.query('SELECT name, start_date, end_date FROM lists WHERE id = ?', [listId]);
+    const [[list]]: any = await db!.query('SELECT name, start_date, end_date, country FROM lists WHERE id = ?', [listId]);
     if (!list) return res.status(404).json({ error: 'List not found' });
-    const [ins] = await db!.execute('INSERT INTO lists (name, start_date, end_date) VALUES (?, ?, ?)', [list.name + ' (copy)', list.start_date, list.end_date]);
+    const [ins] = await db!.execute('INSERT INTO lists (name, start_date, end_date, country) VALUES (?, ?, ?, ?)', [list.name + ' (copy)', list.start_date, list.end_date, list.country]);
     const newId = (ins as any).insertId as number;
     const [items]: any = await db!.query('SELECT label, quantity, checked FROM items WHERE list_id = ?', [listId]);
     for (const it of items) { await db!.execute('INSERT INTO items (list_id, label, quantity, checked) VALUES (?, ?, ?, ?)', [newId, it.label, it.quantity, it.checked]); }
@@ -295,6 +296,76 @@ app.get('*', (_req, res) => {
                       <input type="date" id="newStart" placeholder="Start date">
                       <input type="date" id="newEnd" placeholder="End date">
                     </div>
+                    <div class="row">
+                      <select id="newCountry" style="min-width: 140px; padding: 12px; font-size: 14px; background: #1e293b; color: var(--text); border: 1px solid var(--border); border-radius: 12px;">
+                        <option value="">🌍 Select country</option>
+                        <option value="AR">🇦🇷 Argentina</option>
+                        <option value="AU">🇦🇺 Australia</option>
+                        <option value="AT">🇦🇹 Austria</option>
+                        <option value="BE">🇧🇪 Belgium</option>
+                        <option value="BF">🇧🇫 Burkina Faso</option>
+                        <option value="BR">🇧🇷 Brazil</option>
+                        <option value="CA">🇨🇦 Canada</option>
+                        <option value="CI">🇨🇮 Ivory Coast</option>
+                        <option value="CL">🇨🇱 Chile</option>
+                        <option value="CN">🇨🇳 China</option>
+                        <option value="CO">🇨🇴 Colombia</option>
+                        <option value="DK">🇩🇰 Denmark</option>
+                        <option value="DZ">🇩🇿 Algeria</option>
+                        <option value="EG">🇪🇬 Egypt</option>
+                        <option value="EC">🇪🇨 Ecuador</option>
+                        <option value="ET">🇪🇹 Ethiopia</option>
+                        <option value="FK">🇫🇰 Falkland Islands</option>
+                        <option value="FI">🇫🇮 Finland</option>
+                        <option value="FR">🇫🇷 France</option>
+                        <option value="GF">🇬🇫 French Guiana</option>
+                        <option value="DE">🇩🇪 Germany</option>
+                        <option value="GH">🇬🇭 Ghana</option>
+                        <option value="GB">🇬🇧 United Kingdom</option>
+                        <option value="GY">🇬🇾 Guyana</option>
+                        <option value="IN">🇮🇳 India</option>
+                        <option value="ID">🇮🇩 Indonesia</option>
+                        <option value="IE">🇮🇪 Ireland</option>
+                        <option value="IT">🇮🇹 Italy</option>
+                        <option value="JP">🇯🇵 Japan</option>
+                        <option value="KE">🇰🇪 Kenya</option>
+                        <option value="KR">🇰🇷 South Korea</option>
+                        <option value="LY">🇱🇾 Libya</option>
+                        <option value="MA">🇲🇦 Morocco</option>
+                        <option value="ML">🇲🇱 Mali</option>
+                        <option value="MY">🇲🇾 Malaysia</option>
+                        <option value="MX">🇲🇽 Mexico</option>
+                        <option value="NE">🇳🇪 Niger</option>
+                        <option value="NG">🇳🇬 Nigeria</option>
+                        <option value="NL">🇳🇱 Netherlands</option>
+                        <option value="NO">🇳🇴 Norway</option>
+                        <option value="NZ">🇳🇿 New Zealand</option>
+                        <option value="PE">🇵🇪 Peru</option>
+                        <option value="PH">🇵🇭 Philippines</option>
+                        <option value="PT">🇵🇹 Portugal</option>
+                        <option value="PY">🇵🇾 Paraguay</option>
+                        <option value="RU">🇷🇺 Russia</option>
+                        <option value="SA">🇸🇦 Saudi Arabia</option>
+                        <option value="SD">🇸🇩 Sudan</option>
+                        <option value="SE">🇸🇪 Sweden</option>
+                        <option value="SG">🇸🇬 Singapore</option>
+                        <option value="SN">🇸🇳 Senegal</option>
+                        <option value="SR">🇸🇷 Suriname</option>
+                        <option value="ES">🇪🇸 Spain</option>
+                        <option value="CH">🇨🇭 Switzerland</option>
+                        <option value="TD">🇹🇩 Chad</option>
+                        <option value="TH">🇹🇭 Thailand</option>
+                        <option value="TN">🇹🇳 Tunisia</option>
+                        <option value="TR">🇹🇷 Turkey</option>
+                        <option value="TZ">🇹🇿 Tanzania</option>
+                        <option value="UG">🇺🇬 Uganda</option>
+                        <option value="US">🇺🇸 United States</option>
+                        <option value="UY">🇺🇾 Uruguay</option>
+                        <option value="VE">🇻🇪 Venezuela</option>
+                        <option value="VN">🇻🇳 Vietnam</option>
+                        <option value="ZA">🇿🇦 South Africa</option>
+                      </select>
+                    </div>
                     <button onclick="createList()">➕ Create List</button>
                   </div>
                 </div>
@@ -324,6 +395,76 @@ app.get('*', (_req, res) => {
                   <div class="row">
                     <input type="date" id="editStart">
                     <input type="date" id="editEnd">
+                  </div>
+                  <div class="row">
+                    <select id="editCountry" style="min-width: 140px; padding: 12px; font-size: 14px; background: #1e293b; color: var(--text); border: 1px solid var(--border); border-radius: 12px;">
+                      <option value="">🌍 Select country</option>
+                      <option value="AR">🇦🇷 Argentina</option>
+                      <option value="AU">🇦🇺 Australia</option>
+                      <option value="AT">🇦🇹 Austria</option>
+                      <option value="BE">🇧🇪 Belgium</option>
+                      <option value="BF">🇧🇫 Burkina Faso</option>
+                      <option value="BR">🇧🇷 Brazil</option>
+                      <option value="CA">🇨🇦 Canada</option>
+                      <option value="CI">🇨🇮 Ivory Coast</option>
+                      <option value="CL">🇨🇱 Chile</option>
+                      <option value="CN">🇨🇳 China</option>
+                      <option value="CO">🇨🇴 Colombia</option>
+                      <option value="DK">🇩🇰 Denmark</option>
+                      <option value="DZ">🇩🇿 Algeria</option>
+                      <option value="EG">🇪🇬 Egypt</option>
+                      <option value="EC">🇪🇨 Ecuador</option>
+                      <option value="ET">🇪🇹 Ethiopia</option>
+                      <option value="FK">🇫🇰 Falkland Islands</option>
+                      <option value="FI">🇫🇮 Finland</option>
+                      <option value="FR">🇫🇷 France</option>
+                      <option value="GF">🇬🇫 French Guiana</option>
+                      <option value="DE">🇩🇪 Germany</option>
+                      <option value="GH">🇬🇭 Ghana</option>
+                      <option value="GB">🇬🇧 United Kingdom</option>
+                      <option value="GY">🇬🇾 Guyana</option>
+                      <option value="IN">🇮🇳 India</option>
+                      <option value="ID">🇮🇩 Indonesia</option>
+                      <option value="IE">🇮🇪 Ireland</option>
+                      <option value="IT">🇮🇹 Italy</option>
+                      <option value="JP">🇯🇵 Japan</option>
+                      <option value="KE">🇰🇪 Kenya</option>
+                      <option value="KR">🇰🇷 South Korea</option>
+                      <option value="LY">🇱🇾 Libya</option>
+                      <option value="MA">🇲🇦 Morocco</option>
+                      <option value="ML">🇲🇱 Mali</option>
+                      <option value="MY">🇲🇾 Malaysia</option>
+                      <option value="MX">🇲🇽 Mexico</option>
+                      <option value="NE">🇳🇪 Niger</option>
+                      <option value="NG">🇳🇬 Nigeria</option>
+                      <option value="NL">🇳🇱 Netherlands</option>
+                      <option value="NO">🇳🇴 Norway</option>
+                      <option value="NZ">🇳🇿 New Zealand</option>
+                      <option value="PE">🇵🇪 Peru</option>
+                      <option value="PH">🇵🇭 Philippines</option>
+                      <option value="PT">🇵🇹 Portugal</option>
+                      <option value="PY">🇵🇾 Paraguay</option>
+                      <option value="RU">🇷🇺 Russia</option>
+                      <option value="SA">🇸🇦 Saudi Arabia</option>
+                      <option value="SD">🇸🇩 Sudan</option>
+                      <option value="SE">🇸🇪 Sweden</option>
+                      <option value="SG">🇸🇬 Singapore</option>
+                      <option value="SN">🇸🇳 Senegal</option>
+                      <option value="SR">🇸🇷 Suriname</option>
+                      <option value="ES">🇪🇸 Spain</option>
+                      <option value="CH">🇨🇭 Switzerland</option>
+                      <option value="TD">🇹🇩 Chad</option>
+                      <option value="TH">🇹🇭 Thailand</option>
+                      <option value="TN">🇹🇳 Tunisia</option>
+                      <option value="TR">🇹🇷 Turkey</option>
+                      <option value="TZ">🇹🇿 Tanzania</option>
+                      <option value="UG">🇺🇬 Uganda</option>
+                      <option value="US">🇺🇸 United States</option>
+                      <option value="UY">🇺🇾 Uruguay</option>
+                      <option value="VE">🇻🇪 Venezuela</option>
+                      <option value="VN">🇻🇳 Vietnam</option>
+                      <option value="ZA">🇿🇦 South Africa</option>
+                    </select>
                   </div>
                   <div class="row">
                     <button onclick="saveEdits()" class="accent">💾 Save</button>
