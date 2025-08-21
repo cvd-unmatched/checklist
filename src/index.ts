@@ -88,14 +88,23 @@ app.post('/api/login', async (req, res) => {
 });
 
 app.get('/api/lists', requireAuth, async (_req, res) => {
-  try { const [rows] = await db!.query('SELECT id, name, start_date, end_date FROM lists ORDER BY id DESC'); res.json(rows); }
+  try {
+    const [rows] = await db!.query(
+      'SELECT id, name, start_date, end_date FROM lists ORDER BY (start_date IS NULL), start_date DESC, id DESC'
+    );
+    res.json(rows);
+  }
   catch { res.status(500).json({ error: 'Database error' }); }
 });
 
 app.post('/api/lists', requireAuth, async (req, res) => {
   try {
     const { name, startDate, endDate } = req.body;
-          const [result] = await db!.execute('INSERT INTO lists (name, start_date, end_date) VALUES (?, ?, ?)', [name, startDate || null, endDate || null]);
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    if (startDate && endDate && endDate < startDate) {
+      return res.status(400).json({ error: 'End date cannot be before start date' });
+    }
+    const [result] = await db!.execute('INSERT INTO lists (name, start_date, end_date) VALUES (?, ?, ?)', [name, startDate || null, endDate || null]);
     res.json({ id: (result as any).insertId, name, startDate, endDate });
   } catch { res.status(500).json({ error: 'Database error' }); }
 });
@@ -104,6 +113,10 @@ app.put('/api/lists/:id', requireAuth, async (req, res) => {
   try {
     const listId = Number(req.params.id);
     const { name, startDate, endDate } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    if (startDate && endDate && endDate < startDate) {
+      return res.status(400).json({ error: 'End date cannot be before start date' });
+    }
     await db!.execute('UPDATE lists SET name = ?, start_date = ?, end_date = ? WHERE id = ?', [name, startDate || null, endDate || null, listId]);
     res.json({ id: listId, name, startDate, endDate });
   } catch { res.status(500).json({ error: 'Database error' }); }
