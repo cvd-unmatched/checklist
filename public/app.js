@@ -83,6 +83,20 @@
     log('Copy', 'Copied list to clipboard as text'); if (window.loggingEnabled) alert('Copied to clipboard');
   } catch(e){ log('Error', 'Failed to copy list to clipboard'); if (window.loggingEnabled) console.error('Failed to copy to clipboard', e); alert('Failed to copy'); } }
 
+  function logout(){
+    log('Logout', 'User logging out');
+    localStorage.removeItem('token');
+    token = null;
+    lists = [];
+    currentListId = null;
+    window.currentListId = null;
+    currentItems = [];
+    document.getElementById('app').classList.add('hidden');
+    document.getElementById('login').classList.remove('hidden');
+    document.getElementById('password').value = '';
+    log('Logout', 'User logged out successfully');
+  }
+
   // Compute flag emoji from ISO alpha-2 code
   function computeFlagEmoji(isoCode){
     if (!isoCode || typeof isoCode !== 'string' || isoCode.length !== 2) return '';
@@ -208,6 +222,7 @@
   window.copyCurrentList = copyCurrentList;
   window.copyListText = copyListText;
   window.toggleItem = toggleItem;
+  window.logout = logout;
   // Log that handlers are bound (only when enabled later)
   // This will be printed after LOGGING status is fetched
 

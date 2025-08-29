@@ -289,7 +289,11 @@ app.get('*', (_req, res) => {
             <div id="overview" class="stack">
               <div class="card">
                 <div class="stack">
-                  <h2 class="headline">📋 Lists</h2>
+                  <div class="row">
+                    <h2 class="headline">📋 Lists</h2>
+                    <div class="space"></div>
+                    <button onclick="logout()" style="background: var(--danger); border-color: var(--danger);">🚪 Logout</button>
+                  </div>
                   <div class="stack">
                     <input id="newListName" placeholder="New list name">
                     <div class="row">
