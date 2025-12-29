@@ -3,6 +3,8 @@ import express from 'express';
 import mysql from 'mysql2/promise';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import fs from 'fs';
+import path from 'path';
 
 const app = express();
 app.use(express.json());
@@ -95,9 +97,19 @@ app.get('/api/logging-status', (_req, res) => { res.json({ logging: process.env.
 app.post('/api/login', async (req, res) => {
   const { password } = req.body;
   const appPassword = process.env.APP_PASSWORD;
-  if (!appPassword) return res.status(500).json({ error: 'Server not configured: APP_PASSWORD missing' });
-  if (password !== appPassword) return res.status(401).json({ error: 'Wrong password' });
+  if (!appPassword) {
+    console.error('❌ APP_PASSWORD not set in environment');
+    return res.status(500).json({ error: 'Server not configured: APP_PASSWORD missing' });
+  }
+  // Trim whitespace from both passwords for comparison
+  const trimmedPassword = (password || '').trim();
+  const trimmedAppPassword = appPassword.trim();
+  if (trimmedPassword !== trimmedAppPassword) {
+    console.log('❌ Login failed: password mismatch (received length:', trimmedPassword.length, ', expected length:', trimmedAppPassword.length, ')');
+    return res.status(401).json({ error: 'Wrong password' });
+  }
   const token = jwt.sign({ user: 'admin' }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+  console.log('✅ Login successful');
   res.json({ token });
 });
 
@@ -238,6 +250,17 @@ app.delete('/api/items/:id', requireAuth, async (req, res) => {
   catch { res.status(500).json({ error: 'Database error' }); }
 });
 
+// Read app version from VERSION file (if present)
+let APP_VERSION = 'dev';
+try {
+  const versionPath = path.join(process.cwd(), 'VERSION');
+  if (fs.existsSync(versionPath)) {
+    APP_VERSION = fs.readFileSync(versionPath, 'utf8').trim() || APP_VERSION;
+  }
+} catch {
+  // Ignore version read errors, fall back to default
+}
+
 // Serve the HTML app
 app.get('*', (_req, res) => {
   res.send(`
@@ -297,6 +320,7 @@ app.get('*', (_req, res) => {
                  .actions button{ background:#475569 }
         .accent{ color: var(--accent) }
         .hidden{ display: none !important }
+        .version{ margin-top: 8px; font-size: 11px; color: var(--muted); opacity: 0.8 }
         
         /* Mobile-first responsive design */
         @media (max-width: 640px){
@@ -338,6 +362,7 @@ app.get('*', (_req, res) => {
               <input type="password" id="password" placeholder="Password">
               <button onclick="handleLogin()">Enter</button>
             </div>
+            <div class="version">v${APP_VERSION}</div>
         </div>
         
         <div id="app" class="hidden">
@@ -555,4 +580,19 @@ app.get('*', (_req, res) => {
 
 // Start server
 const port = process.env.PORT ? Number(process.env.PORT) : 8080;
-connectDB().then(() => { app.listen(port, () => { console.log(`🚀 Checklist app running on http://localhost:${port}`); }); });
+connectDB().then(() => { 
+  app.listen(port, () => { 
+    console.log(`🚀 Checklist app running on http://localhost:${port}`);
+    // Log configuration status (without exposing sensitive data)
+    if (process.env.APP_PASSWORD) {
+      console.log(`✅ APP_PASSWORD is configured (length: ${process.env.APP_PASSWORD.length})`);
+    } else {
+      console.error(`❌ APP_PASSWORD is NOT configured - login will fail!`);
+    }
+    if (process.env.JWT_SECRET) {
+      console.log(`✅ JWT_SECRET is configured`);
+    } else {
+      console.warn(`⚠️  JWT_SECRET not set, using default (not secure for production)`);
+    }
+  }); 
+});

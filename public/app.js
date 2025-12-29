@@ -59,8 +59,17 @@
     try {
       var r = await fetch('/api/login',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: password })});
       if(r.ok){ var d=await r.json(); token=d.token; localStorage.setItem('token', d.token); log('Login success', 'User logged in successfully'); showApp(); loadLists(); }
-      else { var e=await r.json().catch(function(){return{error:'Login failed'}}); alert(e.error||'Login failed'); }
-    }catch(e){ log('Login error', 'Login failed'); if (window.loggingEnabled) console.error('Failed to login'); }
+      else { 
+        var e=await r.json().catch(function(){return{error:'Login failed'}}); 
+        var errorMsg = e.error || 'Login failed';
+        log('Login failed', errorMsg);
+        alert(errorMsg + (errorMsg.includes('APP_PASSWORD missing') ? '\n\nPlease check your .env file and restart the container.' : ''));
+      }
+    }catch(e){ 
+      log('Login error', 'Login failed'); 
+      if (window.loggingEnabled) console.error('Failed to login', e); 
+      alert('Failed to connect to server. Please check if the server is running.');
+    }
   }
 
   function showApp(){ document.getElementById('login').classList.add('hidden'); document.getElementById('app').classList.remove('hidden'); log('UI', 'Showing main app'); }
