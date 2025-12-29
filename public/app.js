@@ -69,7 +69,7 @@
   function backToOverview(){ currentListId=null; window.currentListId=null; showOverview(); log('Navigation', 'Back to overview'); }
 
   async function loadLists(){ log('Data', 'Loading lists'); try{ var r = await fetch('/api/lists',{ headers:{ Authorization:'Bearer ' + token }}); if(await handleAuthError(r)) return; if(!r.ok){ var error = await r.json().catch(function(){return{error:'Failed to load lists'}}); log('Error', 'Failed to load lists: ' + (error.error || 'Server error')); return; } lists = await r.json(); renderListsGrid(); log('Data', 'Loaded ' + lists.length + ' lists'); } catch(e){ log('Error', 'Failed to load lists'); if (window.loggingEnabled) console.error('Failed to load lists'); } }
-  function renderListsGrid(){ var grid = document.getElementById('listsGrid'); if(!lists.length){ grid.innerHTML = '<div class="muted">No lists yet. Create your first list.</div>'; return; } grid.innerHTML = lists.map(function(l){ var flag = l.country ? getCountryFlag(l.country) : ''; var countryName = l.country ? getCountryName(l.country) : ''; var countryDisplay = l.country ? (flag + ' ' + countryName) : ''; var titleLine = l.name + (countryDisplay ? ' - ' + countryDisplay : ''); return '<div class="list-card" onclick="openList(' + l.id + ')">'+ '<div style="font-weight:700; margin-bottom:8px; font-size:16px">' + titleLine + '</div>' + '<div class="badge">' + fmtRange(l.start_date, l.end_date) + '</div>' + '</div>'; }).join(''); ensureTwemojiLoaded(function(){ if (window.twemoji) { window.twemoji.parse(grid, { folder: 'svg', ext: '.svg' }); } }); }
+  function renderListsGrid(){ var grid = document.getElementById('listsGrid'); if(!lists.length){ grid.innerHTML = '<div class="muted">No lists yet. Create your first list.</div>'; return; } grid.innerHTML = lists.map(function(l){ var flag = l.country ? getCountryFlag(l.country) : ''; var countryName = l.country ? getCountryName(l.country) : ''; var countryDisplay = l.country ? (flag + ' ' + countryName) : ''; var titleLine = l.name + (countryDisplay ? ' - ' + countryDisplay : ''); return '<div class="list-card" onclick="openList(' + l.id + ')">'+ '<div style="font-weight:700; margin-bottom:8px; font-size:16px">' + titleLine + '</div>' + '<div class="badge">' + fmtRange(l.start_date, l.end_date) + '</div>' + '</div>'; }).join(''); ensureTwemojiLoaded(function(){ try { if (window.twemoji) { window.twemoji.parse(grid, { folder: 'svg', ext: '.svg' }); } } catch(e){ if (window.loggingEnabled) console.warn('Twemoji parse failed, using native emojis'); } }); }
   async function createList(){ var name = document.getElementById('newListName').value; var startDate = document.getElementById('newStart').value; var endDate = document.getElementById('newEnd').value; var country = document.getElementById('newCountry').value; if(!name) return; if (startDate && endDate && endDate < startDate) { if (window.loggingEnabled) console.warn('Invalid date range'); alert('End date cannot be before start date'); return; } log('Create', 'Creating list: ' + name + ' (' + startDate + ' to ' + endDate + ', country: ' + country + ')'); try{ var r=await fetch('/api/lists',{ method:'POST', headers:{'Content-Type':'application/json', Authorization:'Bearer '+token}, body: JSON.stringify({ name:name, startDate:startDate || null, endDate:endDate || null, country:country || null })}); if(await handleAuthError(r)) return; if(r.ok){ document.getElementById('newListName').value=''; document.getElementById('newStart').value=''; document.getElementById('newEnd').value=''; document.getElementById('newCountry').value=''; log('Create', 'List created successfully'); loadLists(); } else { var err=await r.json().catch(function(){return{error:'Create failed'}}); alert(err.error||'Create failed'); } }catch(e){ log('Error', 'Failed to create list'); if (window.loggingEnabled) console.error('Failed to create list'); } }
 
   async function openList(id){ currentListId=id; window.currentListId=id; var list = lists.find(function(x){return x.id===id}); log('Navigation', 'Opening list: ' + (list ? list.name : 'Unknown') + ' (ID: ' + id + ')'); document.getElementById('detailTitle').textContent = list ? list.name : 'List'; document.getElementById('detailDates').textContent = fmtRange(list && list.start_date, list && list.end_date); document.getElementById('editName').value = list ? list.name : ''; document.getElementById('editStart').value = (list && list.start_date) ? String(list.start_date) : ''; document.getElementById('editEnd').value = (list && list.end_date) ? String(list.end_date) : ''; document.getElementById('editCountry').value = list && list.country ? list.country : ''; document.getElementById('editForm').classList.add('hidden'); editing=false; showDetail(); await loadItems(id); }
@@ -201,7 +201,7 @@
         sel.appendChild(opt);
       });
       // Parse emojis in this select for consistent rendering
-      ensureTwemojiLoaded(function(){ if (window.twemoji) { window.twemoji.parse(sel, { folder: 'svg', ext: '.svg' }); } });
+      ensureTwemojiLoaded(function(){ try { if (window.twemoji) { window.twemoji.parse(sel, { folder: 'svg', ext: '.svg' }); } } catch(e){ if (window.loggingEnabled) console.warn('Twemoji parse failed, using native emojis'); } });
     });
   }
 
@@ -223,11 +223,18 @@
       s.id = 'twemoji-script';
       s.defer = true;
       s.crossOrigin = 'anonymous';
-      s.src = 'https://twemoji.maxcdn.com/v/latest/twemoji.min.js';
+      // Use jsDelivr CDN which supports CORS
+      s.src = 'https://cdn.jsdelivr.net/npm/twemoji@latest/dist/twemoji.min.js';
       s.onload = function(){ if (callback) callback(); };
+      s.onerror = function(){ 
+        // If Twemoji fails to load, just continue without it (native emojis will be used)
+        if (window.loggingEnabled) console.warn('Twemoji failed to load, using native emojis');
+        if (callback) callback(); 
+      };
       document.head.appendChild(s);
     } else {
       existing.addEventListener('load', function(){ if (callback) callback(); });
+      existing.addEventListener('error', function(){ if (callback) callback(); });
     }
   }
 
