@@ -47,10 +47,23 @@ async function connectDB() {
         label VARCHAR(255) NOT NULL,
         quantity INT NOT NULL DEFAULT 1,
         checked TINYINT(1) NOT NULL DEFAULT 0,
+        position INT NOT NULL DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (list_id) REFERENCES lists(id) ON DELETE CASCADE
       )
     `);
+    
+    // Add position column if it doesn't exist (migration for existing databases)
+    try {
+      await db.execute(`ALTER TABLE items ADD COLUMN position INT NOT NULL DEFAULT 0`);
+      // Set initial positions based on id for existing items
+      await db.execute(`UPDATE items SET position = id WHERE position = 0`);
+    } catch (error: any) {
+      // Column already exists, ignore error
+      if (!error.message?.includes('Duplicate column name')) {
+        console.warn('Migration note:', error.message);
+      }
+    }
     
     dbStatus = 'connected';
     console.log('✅ Database connected');
@@ -130,15 +143,18 @@ app.post('/api/lists/:id/copy', requireAuth, async (req, res) => {
     if (!list) return res.status(404).json({ error: 'List not found' });
     const [ins] = await db!.execute('INSERT INTO lists (name, start_date, end_date, country) VALUES (?, ?, ?, ?)', [list.name + ' (copy)', list.start_date, list.end_date, list.country]);
     const newId = (ins as any).insertId as number;
-    const [items]: any = await db!.query('SELECT label, quantity, checked FROM items WHERE list_id = ?', [listId]);
-    for (const it of items) { await db!.execute('INSERT INTO items (list_id, label, quantity, checked) VALUES (?, ?, ?, ?)', [newId, it.label, it.quantity, it.checked]); }
+    const [items]: any = await db!.query('SELECT label, quantity, checked, position FROM items WHERE list_id = ? ORDER BY position, id', [listId]);
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      await db!.execute('INSERT INTO items (list_id, label, quantity, checked, position) VALUES (?, ?, ?, ?, ?)', [newId, it.label, it.quantity, it.checked, i + 1]);
+    }
     res.json({ id: newId });
   } catch { res.status(500).json({ error: 'Database error' }); }
 });
 
 app.get('/api/lists/:id/items', requireAuth, async (req, res) => {
   try { 
-    const [rows] = await db!.query('SELECT * FROM items WHERE list_id = ? ORDER BY id', [req.params.id]); 
+    const [rows] = await db!.query('SELECT * FROM items WHERE list_id = ? ORDER BY position, id', [req.params.id]); 
     res.json(rows); 
   } catch (error) { 
     console.error('Error loading items:', error);
@@ -149,14 +165,17 @@ app.get('/api/lists/:id/items', requireAuth, async (req, res) => {
 app.post('/api/lists/:id/items', requireAuth, async (req, res) => {
   try {
     const { label, quantity } = req.body;
-    const [result] = await db!.execute('INSERT INTO items (list_id, label, quantity) VALUES (?, ?, ?)', [req.params.id, label, quantity || 1]);
-    res.json({ id: (result as any).insertId, label, quantity: quantity || 1 });
+    // Get the max position for this list to add new item at the end
+    const [maxPos]: any = await db!.query('SELECT COALESCE(MAX(position), 0) as maxPos FROM items WHERE list_id = ?', [req.params.id]);
+    const nextPosition = (maxPos[0]?.maxPos || 0) + 1;
+    const [result] = await db!.execute('INSERT INTO items (list_id, label, quantity, position) VALUES (?, ?, ?, ?)', [req.params.id, label, quantity || 1, nextPosition]);
+    res.json({ id: (result as any).insertId, label, quantity: quantity || 1, position: nextPosition });
   } catch { res.status(500).json({ error: 'Database error' }); }
 });
 
 app.put('/api/items/:id', requireAuth, async (req, res) => {
   try { 
-    const { checked, quantity } = req.body; 
+    const { checked, quantity, label } = req.body; 
     const updates = [];
     const values = [];
     
@@ -170,6 +189,11 @@ app.put('/api/items/:id', requireAuth, async (req, res) => {
       values.push(quantity);
     }
     
+    if (label !== undefined) {
+      updates.push('label = ?');
+      values.push(label);
+    }
+    
     if (updates.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
     }
@@ -180,6 +204,32 @@ app.put('/api/items/:id', requireAuth, async (req, res) => {
   } catch (error) { 
     console.error('Error updating item:', error);
     res.status(500).json({ error: 'Database error' }); 
+  }
+});
+
+app.put('/api/lists/:id/items/reorder', requireAuth, async (req, res) => {
+  try {
+    const { itemIds } = req.body;
+    if (!Array.isArray(itemIds)) {
+      return res.status(400).json({ error: 'itemIds must be an array' });
+    }
+    
+    // Verify all items belong to this list
+    const [items]: any = await db!.query('SELECT id FROM items WHERE list_id = ?', [req.params.id]);
+    const validIds = new Set(items.map((item: any) => item.id));
+    if (!itemIds.every((id: number) => validIds.has(id))) {
+      return res.status(400).json({ error: 'Invalid item IDs' });
+    }
+    
+    // Update positions
+    for (let i = 0; i < itemIds.length; i++) {
+      await db!.execute('UPDATE items SET position = ? WHERE id = ? AND list_id = ?', [i + 1, itemIds[i], req.params.id]);
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error reordering items:', error);
+    res.status(500).json({ error: 'Database error' });
   }
 });
 
@@ -231,9 +281,13 @@ app.get('*', (_req, res) => {
         .headline{ font-size: 20px; margin-bottom: 12px; word-break: break-word }
         .toolbar{ display:flex; gap:8px; flex-wrap: wrap; align-items:center }
         .big-checkbox input[type="checkbox"]{ width: 24px; height: 24px; accent-color: var(--accent); }
-        .item{ display:flex; align-items:center; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap }
+        .item{ display:flex; align-items:center; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; cursor: move; }
         .item:last-child{ border-bottom:0 }
-        .item-label{ flex: 1; min-width: 0; word-break: break-word }
+        .item.dragging{ opacity: 0.5; }
+        .item-label{ flex: 1; min-width: 0; word-break: break-word; cursor: text; }
+        .item-label:hover{ color: var(--accent); }
+        .drag-handle{ user-select: none; cursor: grab; }
+        .drag-handle:active{ cursor: grabbing; }
                  .db-status { position: fixed; top: 12px; right: 12px; display: flex; align-items: center; gap: 6px; z-index: 10; background: rgba(11, 15, 20, 0.9); padding: 6px 8px; border-radius: 8px; }
         .dot { width: 10px; height: 10px; border-radius: 50%; }
         .dot.green { background: var(--accent); }
@@ -253,10 +307,12 @@ app.get('*', (_req, res) => {
           .toolbar input, .toolbar button{ width: 100%; margin: 0 }
           .row{ flex-direction: column; align-items: stretch }
           .row input, .row button{ width: 100%; margin: 0 }
-          .item{ flex-direction: column; align-items: stretch; gap: 8px }
-          .item > *{ width: 100% }
-          .item input[type="checkbox"]{ align-self: flex-start }
-          .item input[type="number"]{ width: 100% }
+          .item{ flex-wrap: wrap; gap: 8px }
+          .item .drag-handle{ flex-shrink: 0 }
+          .item input[type="checkbox"]{ flex-shrink: 0; width: 24px; height: 24px }
+          .item .item-label{ flex: 1; min-width: 150px }
+          .item input[type="number"]{ width: 80px; flex-shrink: 0 }
+          .item button{ flex: 1; min-width: 80px }
           .headline{ font-size: 18px }
                      .db-status{ top: 8px; right: 8px; padding: 4px 6px }
         }
