@@ -54,11 +54,29 @@
   }
 
   async function handleLogin(){
-    var password = document.getElementById('password').value;
-    log('Login attempt', 'User trying to login');
+    var passwordEl = document.getElementById('password');
+    if (!passwordEl) {
+      log('Login error', 'Password input not found');
+      alert('Password input not found. Please refresh the page.');
+      return;
+    }
+    var password = passwordEl.value;
+    if (!password || password.trim().length === 0) {
+      log('Login error', 'Empty password provided');
+      alert('Please enter a password');
+      return;
+    }
+    log('Login attempt', 'User trying to login (password length: ' + password.length + ')');
     try {
       var r = await fetch('/api/login',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: password })});
-      if(r.ok){ var d=await r.json(); token=d.token; localStorage.setItem('token', d.token); log('Login success', 'User logged in successfully'); showApp(); loadLists(); }
+      if(r.ok){ 
+        var d=await r.json(); 
+        token=d.token; 
+        localStorage.setItem('token', d.token); 
+        log('Login success', 'User logged in successfully'); 
+        showApp(); 
+        loadLists(); 
+      }
       else { 
         var e=await r.json().catch(function(){return{error:'Login failed'}}); 
         var errorMsg = e.error || 'Login failed';
@@ -77,7 +95,31 @@
   function showDetail(){ document.getElementById('overview').classList.add('hidden'); document.getElementById('detail').classList.remove('hidden'); log('Navigation', 'Showing list detail'); }
   function backToOverview(){ currentListId=null; window.currentListId=null; showOverview(); log('Navigation', 'Back to overview'); }
 
-  async function loadLists(){ log('Data', 'Loading lists'); try{ var r = await fetch('/api/lists',{ headers:{ Authorization:'Bearer ' + token }}); if(await handleAuthError(r)) return; if(!r.ok){ var error = await r.json().catch(function(){return{error:'Failed to load lists'}}); log('Error', 'Failed to load lists: ' + (error.error || 'Server error')); return; } lists = await r.json(); renderListsGrid(); log('Data', 'Loaded ' + lists.length + ' lists'); } catch(e){ log('Error', 'Failed to load lists'); if (window.loggingEnabled) console.error('Failed to load lists'); } }
+  async function loadLists(){ 
+    log('Data', 'Loading lists'); 
+    if (!token) {
+      log('Error', 'No token available for loadLists');
+      return;
+    }
+    try{ 
+      var r = await fetch('/api/lists',{ headers:{ Authorization:'Bearer ' + token }}); 
+      if(await handleAuthError(r)) return; 
+      if(!r.ok){ 
+        var error = await r.json().catch(function(){return{error:'Failed to load lists'}}); 
+        log('Error', 'Failed to load lists: ' + (error.error || 'Server error') + ' (status: ' + r.status + ')'); 
+        if (r.status === 500) {
+          if (window.loggingEnabled) console.error('Server error loading lists - check server logs');
+        }
+        return; 
+      } 
+      lists = await r.json(); 
+      renderListsGrid(); 
+      log('Data', 'Loaded ' + lists.length + ' lists'); 
+    } catch(e){ 
+      log('Error', 'Failed to load lists'); 
+      if (window.loggingEnabled) console.error('Failed to load lists', e); 
+    } 
+  }
   function renderListsGrid(){ var grid = document.getElementById('listsGrid'); if(!lists.length){ grid.innerHTML = '<div class="muted">No lists yet. Create your first list.</div>'; return; } grid.innerHTML = lists.map(function(l){ var flag = l.country ? getCountryFlag(l.country) : ''; var countryName = l.country ? getCountryName(l.country) : ''; var countryDisplay = l.country ? (flag + ' ' + countryName) : ''; var titleLine = l.name + (countryDisplay ? ' - ' + countryDisplay : ''); return '<div class="list-card" onclick="openList(' + l.id + ')">'+ '<div style="font-weight:700; margin-bottom:8px; font-size:16px">' + titleLine + '</div>' + '<div class="badge">' + fmtRange(l.start_date, l.end_date) + '</div>' + '</div>'; }).join(''); ensureTwemojiLoaded(function(){ try { if (window.twemoji) { window.twemoji.parse(grid, { folder: 'svg', ext: '.svg' }); } } catch(e){ if (window.loggingEnabled) console.warn('Twemoji parse failed, using native emojis'); } }); }
   async function createList(){ var name = document.getElementById('newListName').value; var startDate = document.getElementById('newStart').value; var endDate = document.getElementById('newEnd').value; var country = document.getElementById('newCountry').value; if(!name) return; if (startDate && endDate && endDate < startDate) { if (window.loggingEnabled) console.warn('Invalid date range'); alert('End date cannot be before start date'); return; } log('Create', 'Creating list: ' + name + ' (' + startDate + ' to ' + endDate + ', country: ' + country + ')'); try{ var r=await fetch('/api/lists',{ method:'POST', headers:{'Content-Type':'application/json', Authorization:'Bearer '+token}, body: JSON.stringify({ name:name, startDate:startDate || null, endDate:endDate || null, country:country || null })}); if(await handleAuthError(r)) return; if(r.ok){ document.getElementById('newListName').value=''; document.getElementById('newStart').value=''; document.getElementById('newEnd').value=''; document.getElementById('newCountry').value=''; log('Create', 'List created successfully'); loadLists(); } else { var err=await r.json().catch(function(){return{error:'Create failed'}}); alert(err.error||'Create failed'); } }catch(e){ log('Error', 'Failed to create list'); if (window.loggingEnabled) console.error('Failed to create list'); } }
 

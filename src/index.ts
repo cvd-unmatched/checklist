@@ -79,14 +79,39 @@ async function connectDB() {
 // Check database status
 async function checkDBStatus() {
   if (!db) { dbStatus = 'error'; return; }
-  try { await db.query('SELECT 1'); dbStatus = 'connected'; } catch { dbStatus = 'error'; }
+  try { 
+    await db.query('SELECT 1'); 
+    dbStatus = 'connected'; 
+  } catch (error) { 
+    dbStatus = 'error';
+    console.error('❌ Database health check failed:', error);
+    // Attempt to reconnect if connection is lost
+    if (db) {
+      try {
+        await db.end();
+      } catch (_) {
+        // Ignore errors when closing
+      }
+      db = null;
+      await connectDB();
+    }
+  }
 }
 
 // Auth middleware
 function requireAuth(req: any, res: any, next: any) {
   const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) return res.status(401).json({ error: 'No token' });
-  try { jwt.verify(token, process.env.JWT_SECRET || 'secret'); next(); } catch { res.status(401).json({ error: 'Invalid token' }); }
+  if (!token) {
+    console.log('❌ Auth failed: No token provided');
+    return res.status(401).json({ error: 'No token' });
+  }
+  try { 
+    jwt.verify(token, process.env.JWT_SECRET || 'secret'); 
+    next(); 
+  } catch (error) { 
+    console.log('❌ Auth failed: Invalid or expired token', error instanceof Error ? error.message : 'unknown error');
+    res.status(401).json({ error: 'Invalid token' }); 
+  }
 }
 
 // Routes
@@ -106,6 +131,7 @@ app.post('/api/login', async (req, res) => {
   const trimmedAppPassword = appPassword.trim();
   if (trimmedPassword !== trimmedAppPassword) {
     console.log('❌ Login failed: password mismatch (received length:', trimmedPassword.length, ', expected length:', trimmedAppPassword.length, ')');
+    console.log('❌ Login failed: received password type:', typeof password, ', value preview:', password ? (password.substring(0, 3) + '...') : 'empty');
     return res.status(401).json({ error: 'Wrong password' });
   }
   const token = jwt.sign({ user: 'admin' }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
@@ -114,28 +140,45 @@ app.post('/api/login', async (req, res) => {
 });
 
 app.get('/api/lists', requireAuth, async (_req, res) => {
+  if (!db || dbStatus !== 'connected') {
+    console.error('❌ /api/lists: Database not connected');
+    return res.status(500).json({ error: 'Database not available' });
+  }
   try {
-    const [rows] = await db!.query(
+    const [rows] = await db.query(
       'SELECT id, name, start_date, end_date, country FROM lists ORDER BY (start_date IS NULL), start_date DESC, id DESC'
     );
     res.json(rows);
+  } catch (error) {
+    console.error('❌ /api/lists error:', error);
+    res.status(500).json({ error: 'Database error' });
   }
-  catch { res.status(500).json({ error: 'Database error' }); }
 });
 
 app.post('/api/lists', requireAuth, async (req, res) => {
+  if (!db || dbStatus !== 'connected') {
+    console.error('❌ /api/lists POST: Database not connected');
+    return res.status(500).json({ error: 'Database not available' });
+  }
   try {
     const { name, startDate, endDate, country } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
     if (startDate && endDate && endDate < startDate) {
       return res.status(400).json({ error: 'End date cannot be before start date' });
     }
-    const [result] = await db!.execute('INSERT INTO lists (name, start_date, end_date, country) VALUES (?, ?, ?, ?)', [name, startDate || null, endDate || null, country || null]);
+    const [result] = await db.execute('INSERT INTO lists (name, start_date, end_date, country) VALUES (?, ?, ?, ?)', [name, startDate || null, endDate || null, country || null]);
     res.json({ id: (result as any).insertId, name, startDate, endDate, country });
-  } catch { res.status(500).json({ error: 'Database error' }); }
+  } catch (error) {
+    console.error('❌ /api/lists POST error:', error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 app.put('/api/lists/:id', requireAuth, async (req, res) => {
+  if (!db || dbStatus !== 'connected') {
+    console.error('❌ /api/lists/:id PUT: Database not connected');
+    return res.status(500).json({ error: 'Database not available' });
+  }
   try {
     const listId = Number(req.params.id);
     const { name, startDate, endDate, country } = req.body;
@@ -143,49 +186,74 @@ app.put('/api/lists/:id', requireAuth, async (req, res) => {
     if (startDate && endDate && endDate < startDate) {
       return res.status(400).json({ error: 'End date cannot be before start date' });
     }
-    await db!.execute('UPDATE lists SET name = ?, start_date = ?, end_date = ?, country = ? WHERE id = ?', [name, startDate || null, endDate || null, country || null, listId]);
+    await db.execute('UPDATE lists SET name = ?, start_date = ?, end_date = ?, country = ? WHERE id = ?', [name, startDate || null, endDate || null, country || null, listId]);
     res.json({ id: listId, name, startDate, endDate, country });
-  } catch { res.status(500).json({ error: 'Database error' }); }
+  } catch (error) {
+    console.error('❌ /api/lists/:id PUT error:', error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 app.post('/api/lists/:id/copy', requireAuth, async (req, res) => {
+  if (!db || dbStatus !== 'connected') {
+    console.error('❌ /api/lists/:id/copy: Database not connected');
+    return res.status(500).json({ error: 'Database not available' });
+  }
   try {
     const listId = Number(req.params.id);
-    const [[list]]: any = await db!.query('SELECT name, start_date, end_date, country FROM lists WHERE id = ?', [listId]);
+    const [[list]]: any = await db.query('SELECT name, start_date, end_date, country FROM lists WHERE id = ?', [listId]);
     if (!list) return res.status(404).json({ error: 'List not found' });
-    const [ins] = await db!.execute('INSERT INTO lists (name, start_date, end_date, country) VALUES (?, ?, ?, ?)', [list.name + ' (copy)', list.start_date, list.end_date, list.country]);
+    const [ins] = await db.execute('INSERT INTO lists (name, start_date, end_date, country) VALUES (?, ?, ?, ?)', [list.name + ' (copy)', list.start_date, list.end_date, list.country]);
     const newId = (ins as any).insertId as number;
-    const [items]: any = await db!.query('SELECT label, quantity, checked, position FROM items WHERE list_id = ? ORDER BY position, id', [listId]);
+    const [items]: any = await db.query('SELECT label, quantity, checked, position FROM items WHERE list_id = ? ORDER BY position, id', [listId]);
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
-      await db!.execute('INSERT INTO items (list_id, label, quantity, checked, position) VALUES (?, ?, ?, ?, ?)', [newId, it.label, it.quantity, it.checked, i + 1]);
+      await db.execute('INSERT INTO items (list_id, label, quantity, checked, position) VALUES (?, ?, ?, ?, ?)', [newId, it.label, it.quantity, it.checked, i + 1]);
     }
     res.json({ id: newId });
-  } catch { res.status(500).json({ error: 'Database error' }); }
+  } catch (error) {
+    console.error('❌ /api/lists/:id/copy error:', error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 app.get('/api/lists/:id/items', requireAuth, async (req, res) => {
+  if (!db || dbStatus !== 'connected') {
+    console.error('❌ /api/lists/:id/items: Database not connected');
+    return res.status(500).json({ error: 'Database not available' });
+  }
   try { 
-    const [rows] = await db!.query('SELECT * FROM items WHERE list_id = ? ORDER BY position, id', [req.params.id]); 
+    const [rows] = await db.query('SELECT * FROM items WHERE list_id = ? ORDER BY position, id', [req.params.id]); 
     res.json(rows); 
   } catch (error) { 
-    console.error('Error loading items:', error);
+    console.error('❌ /api/lists/:id/items error:', error);
     res.status(500).json({ error: 'Database error' }); 
   }
 });
 
 app.post('/api/lists/:id/items', requireAuth, async (req, res) => {
+  if (!db || dbStatus !== 'connected') {
+    console.error('❌ /api/lists/:id/items POST: Database not connected');
+    return res.status(500).json({ error: 'Database not available' });
+  }
   try {
     const { label, quantity } = req.body;
     // Get the max position for this list to add new item at the end
-    const [maxPos]: any = await db!.query('SELECT COALESCE(MAX(position), 0) as maxPos FROM items WHERE list_id = ?', [req.params.id]);
+    const [maxPos]: any = await db.query('SELECT COALESCE(MAX(position), 0) as maxPos FROM items WHERE list_id = ?', [req.params.id]);
     const nextPosition = (maxPos[0]?.maxPos || 0) + 1;
-    const [result] = await db!.execute('INSERT INTO items (list_id, label, quantity, position) VALUES (?, ?, ?, ?)', [req.params.id, label, quantity || 1, nextPosition]);
+    const [result] = await db.execute('INSERT INTO items (list_id, label, quantity, position) VALUES (?, ?, ?, ?)', [req.params.id, label, quantity || 1, nextPosition]);
     res.json({ id: (result as any).insertId, label, quantity: quantity || 1, position: nextPosition });
-  } catch { res.status(500).json({ error: 'Database error' }); }
+  } catch (error) {
+    console.error('❌ /api/lists/:id/items POST error:', error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 app.put('/api/items/:id', requireAuth, async (req, res) => {
+  if (!db || dbStatus !== 'connected') {
+    console.error('❌ /api/items/:id PUT: Database not connected');
+    return res.status(500).json({ error: 'Database not available' });
+  }
   try { 
     const { checked, quantity, label } = req.body; 
     const updates = [];
@@ -211,15 +279,19 @@ app.put('/api/items/:id', requireAuth, async (req, res) => {
     }
     
     values.push(req.params.id);
-    await db!.execute(`UPDATE items SET ${updates.join(', ')} WHERE id = ?`, values);
+    await db.execute(`UPDATE items SET ${updates.join(', ')} WHERE id = ?`, values);
     res.json({ success: true }); 
   } catch (error) { 
-    console.error('Error updating item:', error);
+    console.error('❌ /api/items/:id PUT error:', error);
     res.status(500).json({ error: 'Database error' }); 
   }
 });
 
 app.put('/api/lists/:id/items/reorder', requireAuth, async (req, res) => {
+  if (!db || dbStatus !== 'connected') {
+    console.error('❌ /api/lists/:id/items/reorder: Database not connected');
+    return res.status(500).json({ error: 'Database not available' });
+  }
   try {
     const { itemIds } = req.body;
     if (!Array.isArray(itemIds)) {
@@ -227,7 +299,7 @@ app.put('/api/lists/:id/items/reorder', requireAuth, async (req, res) => {
     }
     
     // Verify all items belong to this list
-    const [items]: any = await db!.query('SELECT id FROM items WHERE list_id = ?', [req.params.id]);
+    const [items]: any = await db.query('SELECT id FROM items WHERE list_id = ?', [req.params.id]);
     const validIds = new Set(items.map((item: any) => item.id));
     if (!itemIds.every((id: number) => validIds.has(id))) {
       return res.status(400).json({ error: 'Invalid item IDs' });
@@ -235,19 +307,28 @@ app.put('/api/lists/:id/items/reorder', requireAuth, async (req, res) => {
     
     // Update positions
     for (let i = 0; i < itemIds.length; i++) {
-      await db!.execute('UPDATE items SET position = ? WHERE id = ? AND list_id = ?', [i + 1, itemIds[i], req.params.id]);
+      await db.execute('UPDATE items SET position = ? WHERE id = ? AND list_id = ?', [i + 1, itemIds[i], req.params.id]);
     }
     
     res.json({ success: true });
   } catch (error) {
-    console.error('Error reordering items:', error);
+    console.error('❌ /api/lists/:id/items/reorder error:', error);
     res.status(500).json({ error: 'Database error' });
   }
 });
 
 app.delete('/api/items/:id', requireAuth, async (req, res) => {
-  try { await db!.execute('DELETE FROM items WHERE id = ?', [req.params.id]); res.json({ success: true }); }
-  catch { res.status(500).json({ error: 'Database error' }); }
+  if (!db || dbStatus !== 'connected') {
+    console.error('❌ /api/items/:id DELETE: Database not connected');
+    return res.status(500).json({ error: 'Database not available' });
+  }
+  try { 
+    await db.execute('DELETE FROM items WHERE id = ?', [req.params.id]); 
+    res.json({ success: true }); 
+  } catch (error) {
+    console.error('❌ /api/items/:id DELETE error:', error);
+    res.status(500).json({ error: 'Database error' }); 
+  }
 });
 
 // Read app version from VERSION file (if present)
