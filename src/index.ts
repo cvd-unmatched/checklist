@@ -645,6 +645,7 @@ app.get('*', (_req, res) => {
                   <div class="row">
                     <input id="newItemQty" type="number" min="1" value="1" placeholder="Qty">
                     <button onclick="addItem(currentListId)">Add Item</button>
+                    <button id="hideCheckedBtn" type="button" onclick="toggleHideChecked()" title="Hide items you have already packed">📦 Hide packed</button>
                   </div>
                 </div>
               </div>
