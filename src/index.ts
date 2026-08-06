@@ -361,44 +361,38 @@ app.get('*', (_req, res) => {
     <meta name="apple-mobile-web-app-title" content="Checklist">
     <style>
                  :root{
-           --bg: #0f1419;
-           --panel: #1a1f2e;
-           --elev: #232b3d;
-           --text: #f8fafc;
-           --muted: #cbd5e1;
-           --border: #334155;
-           --accent: #22d3ee;
-           --accent-2: #8b5cf6;
-           --pink: #f472b6;
-           --success: #34d399;
-           --danger: #ef4444;
-           --warn: #f59e0b;
+           --bg: #0d1117;
+           --panel: #161b22;
+           --elev: #1c222b;
+           --text: #e6edf3;
+           --muted: #8b949e;
+           --border: #30363d;
+           --accent: #4f7cff;
+           --accent-hover: #6b91ff;
+           --success: #3fb950;
+           --danger: #f85149;
+           --warn: #d29922;
          }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: var(--bg) radial-gradient(circle at 15% 0%, rgba(34, 211, 238, 0.10), transparent 45%), radial-gradient(circle at 85% 20%, rgba(139, 92, 246, 0.10), transparent 45%); background-attachment: fixed; color: var(--text); line-height: 1.6; }
+        body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
         .container { max-width: 960px; margin: 0 auto; padding: 12px; }
-        .card { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+        .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
         .row{ display:flex; align-items:center; gap: 8px; flex-wrap: wrap }
         .stack{ display:flex; flex-direction: column; gap: 12px }
         .space{ flex: 1; min-width: 0 }
-                 input, button { background: #1e293b; color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 12px; font-size: 16px; }
+                 input, button { background: #0d1117; color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 16px; }
         input[type="date"]{ min-width: 140px; max-width: 100% }
         input[type="number"]{ width: 80px; text-align: center }
-                 button { cursor: pointer; background: #334155; white-space: nowrap; min-width: 60px; transition: transform .1s ease, filter .15s ease; }
-         button:hover { background: #475569; }
-         button:active { transform: scale(0.97); }
+                 button { cursor: pointer; background: #21262d; white-space: nowrap; min-width: 60px; font-weight: 500; transition: background-color .12s ease, border-color .12s ease; }
+         button:hover { background: #2d333b; border-color: #444c56; }
+         button:active { background: #262c35; }
         .muted{ color: var(--muted) }
         .grid{ display:grid; gap: 12px; }
         .lists-grid{ grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
-        .list-card{ background: var(--elev); border:1px solid var(--border); border-top: 4px solid var(--accent); border-radius: 16px; padding: 16px; cursor: pointer; transition: transform .12s ease, box-shadow .12s ease; }
-        .list-card:hover{ transform: translateY(-2px); box-shadow: 0 8px 24px -8px rgba(0,0,0,0.5), 0 0 0 2px var(--accent); }
-        .list-card.c1{ border-top-color: var(--accent-2); } .list-card.c1:hover{ box-shadow: 0 8px 24px -8px rgba(0,0,0,0.5), 0 0 0 2px var(--accent-2); }
-        .list-card.c2{ border-top-color: var(--pink); } .list-card.c2:hover{ box-shadow: 0 8px 24px -8px rgba(0,0,0,0.5), 0 0 0 2px var(--pink); }
-        .list-card.c3{ border-top-color: var(--success); } .list-card.c3:hover{ box-shadow: 0 8px 24px -8px rgba(0,0,0,0.5), 0 0 0 2px var(--success); }
-        .list-card.c4{ border-top-color: var(--warn); } .list-card.c4:hover{ box-shadow: 0 8px 24px -8px rgba(0,0,0,0.5), 0 0 0 2px var(--warn); }
-                 .badge{ padding: 6px 10px; border:1px solid var(--border); border-radius: 999px; font-size: 12px; color: var(--muted); background: #1e293b; word-break: break-word }
-        .headline{ font-size: 20px; margin-bottom: 12px; word-break: break-word }
-        .gradient-text{ background: linear-gradient(90deg, var(--accent), var(--accent-2) 60%, var(--pink)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .list-card{ background: var(--elev); border:1px solid var(--border); border-radius: 12px; padding: 16px; cursor: pointer; transition: border-color .12s ease, background-color .12s ease; }
+        .list-card:hover{ border-color: var(--accent); background: #212831; }
+                 .badge{ padding: 6px 10px; border:1px solid var(--border); border-radius: 999px; font-size: 12px; color: var(--muted); background: #0d1117; word-break: break-word }
+        .headline{ font-size: 20px; font-weight: 600; margin-bottom: 12px; word-break: break-word; letter-spacing: -0.01em; }
         .toolbar{ display:flex; gap:8px; flex-wrap: wrap; align-items:center }
         .big-checkbox input[type="checkbox"]{ width: 24px; height: 24px; accent-color: var(--accent); }
         .item{ display:flex; align-items:center; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; cursor: move; }
@@ -406,34 +400,28 @@ app.get('*', (_req, res) => {
         .item.dragging{ opacity: 0.5; }
         .item-label{ flex: 1; min-width: 0; word-break: break-word; cursor: text; }
         .item-label:hover{ color: var(--accent); }
+        .item-label.checked{ color: var(--muted); }
         .label-edit-input{ flex: 1 1 100%; min-width: 0; border-color: var(--accent); }
-        .label-edit-input:focus{ outline: none; box-shadow: 0 0 0 2px rgba(34,211,238,0.35); }
+        .label-edit-input:focus{ outline: none; box-shadow: 0 0 0 2px rgba(79,124,255,0.35); }
         .label-edit-action{ flex-shrink: 0 }
         .drag-handle{ user-select: none; cursor: grab; }
         .drag-handle:active{ cursor: grabbing; }
-                 .db-status { position: fixed; top: 12px; right: 12px; display: flex; align-items: center; gap: 6px; z-index: 10; background: rgba(11, 15, 20, 0.9); padding: 6px 8px; border-radius: 8px; }
-        .dot { width: 10px; height: 10px; border-radius: 50%; }
-        .dot.green { background: var(--accent); }
+                 .db-status { position: fixed; top: 12px; right: 12px; display: flex; align-items: center; gap: 6px; z-index: 10; background: rgba(13, 17, 23, 0.9); padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); }
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
+        .dot.green { background: var(--success); }
         .dot.orange { background: var(--warn); }
         .dot.red { background: var(--danger); }
         .db-label { font-size: 11px; color: var(--muted); }
-                 .actions button{ background:#475569 }
+                 .actions button{ background:#21262d }
         .accent{ color: var(--accent) }
         .hidden{ display: none !important }
         .version{ margin-top: 8px; font-size: 11px; color: var(--muted); opacity: 0.8 }
 
-        /* Playful per-action button colors */
-        .btn-primary{ background: linear-gradient(135deg, var(--accent), #0ea5b7); color: #04222a; border-color: transparent; font-weight: 600; }
-        .btn-primary:hover{ filter: brightness(1.08); background: linear-gradient(135deg, var(--accent), #0ea5b7); }
-        .btn-accent2{ background: linear-gradient(135deg, var(--accent-2), #6d28d9); color: #fff; border-color: transparent; font-weight: 600; }
-        .btn-accent2:hover{ filter: brightness(1.1); background: linear-gradient(135deg, var(--accent-2), #6d28d9); }
-        .btn-success{ background: linear-gradient(135deg, var(--success), #059669); color: #04231a; border-color: transparent; font-weight: 600; }
-        .btn-success:hover{ filter: brightness(1.08); background: linear-gradient(135deg, var(--success), #059669); }
-        .btn-warn{ background: linear-gradient(135deg, var(--warn), #d97706); color: #2a1600; border-color: transparent; font-weight: 600; }
-        .btn-warn:hover{ filter: brightness(1.08); background: linear-gradient(135deg, var(--warn), #d97706); }
-        .btn-danger{ background: linear-gradient(135deg, var(--danger), #b91c1c); color: #fff; border-color: transparent; font-weight: 600; }
-        .btn-danger:hover{ filter: brightness(1.1); background: linear-gradient(135deg, var(--danger), #b91c1c); }
-        .item-label.checked{ color: var(--success); }
+        /* Restrained, semantic button colors: accent = primary action, red = destructive, everything else neutral */
+        .btn-primary{ background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+        .btn-primary:hover{ background: var(--accent-hover); border-color: var(--accent-hover); }
+        .btn-danger{ background: transparent; color: var(--danger); border-color: var(--danger); font-weight: 500; }
+        .btn-danger:hover{ background: rgba(248,81,73,0.12); }
         
         /* Mobile-first responsive design */
         @media (max-width: 640px){
@@ -471,7 +459,7 @@ app.get('*', (_req, res) => {
 
     <div class="container">
         <div id="login" class="card" style="text-align:center">
-            <h2 class="gradient-text" style="margin-bottom:16px">🔐 Sign in</h2>
+            <h2 style="margin-bottom:16px">🔐 Sign in</h2>
             <div class="stack">
               <input type="password" id="password" placeholder="Password">
               <button class="btn-primary" onclick="handleLogin()">Enter</button>
@@ -485,7 +473,7 @@ app.get('*', (_req, res) => {
               <div class="card">
                 <div class="stack">
                   <div class="row">
-                    <h2 class="headline gradient-text">📋 Lists</h2>
+                    <h2 class="headline">📋 Lists</h2>
                     <div class="space"></div>
                     <button class="btn-danger" onclick="logout()">🚪 Logout</button>
                   </div>
@@ -579,9 +567,9 @@ app.get('*', (_req, res) => {
                   <div class="row">
                     <button onclick="backToOverview()">⬅️ Back</button>
                     <div class="space"></div>
-                    <button id="editToggle" class="btn-accent2" onclick="toggleEdit()">✏️ Edit</button>
-                    <button id="copyBtn" class="btn-success" onclick="copyCurrentList()">📄 Copy</button>
-                    <button id="copyTextBtn" class="btn-primary" onclick="copyListText()">📋 Copy text</button>
+                    <button id="editToggle" onclick="toggleEdit()">✏️ Edit</button>
+                    <button id="copyBtn" onclick="copyCurrentList()">📄 Copy</button>
+                    <button id="copyTextBtn" onclick="copyListText()">📋 Copy text</button>
                   </div>
                   <h2 id="detailTitle" class="headline"></h2>
                   <div id="detailDates" class="badge"></div>
@@ -678,8 +666,8 @@ app.get('*', (_req, res) => {
                   <div class="row">
                     <input id="newItemQty" type="number" min="1" value="1" placeholder="Qty">
                     <button class="btn-primary" onclick="addItem(currentListId)">Add Item</button>
-                    <button id="hideCheckedBtn" class="btn-accent2" type="button" onclick="toggleHideChecked()" title="Hide items you have already packed">📦 Hide packed</button>
-                    <button class="btn-warn" type="button" onclick="uncheckAll()" title="Uncheck every item in this list">↩️ Uncheck all</button>
+                    <button id="hideCheckedBtn" type="button" onclick="toggleHideChecked()" title="Hide items you have already packed">📦 Hide packed</button>
+                    <button type="button" onclick="uncheckAll()" title="Uncheck every item in this list">↩️ Uncheck all</button>
                   </div>
                 </div>
               </div>
