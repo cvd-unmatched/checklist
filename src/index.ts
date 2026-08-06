@@ -369,11 +369,13 @@ app.get('*', (_req, res) => {
            --border: #334155;
            --accent: #22d3ee;
            --accent-2: #8b5cf6;
+           --pink: #f472b6;
+           --success: #34d399;
            --danger: #ef4444;
            --warn: #f59e0b;
          }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+        body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: var(--bg) radial-gradient(circle at 15% 0%, rgba(34, 211, 238, 0.10), transparent 45%), radial-gradient(circle at 85% 20%, rgba(139, 92, 246, 0.10), transparent 45%); background-attachment: fixed; color: var(--text); line-height: 1.6; }
         .container { max-width: 960px; margin: 0 auto; padding: 12px; }
         .card { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 12px; }
         .row{ display:flex; align-items:center; gap: 8px; flex-wrap: wrap }
@@ -382,15 +384,21 @@ app.get('*', (_req, res) => {
                  input, button { background: #1e293b; color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 12px; font-size: 16px; }
         input[type="date"]{ min-width: 140px; max-width: 100% }
         input[type="number"]{ width: 80px; text-align: center }
-                 button { cursor: pointer; background: #334155; white-space: nowrap; min-width: 60px; }
+                 button { cursor: pointer; background: #334155; white-space: nowrap; min-width: 60px; transition: transform .1s ease, filter .15s ease; }
          button:hover { background: #475569; }
+         button:active { transform: scale(0.97); }
         .muted{ color: var(--muted) }
         .grid{ display:grid; gap: 12px; }
         .lists-grid{ grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
-        .list-card{ background: var(--elev); border:1px solid var(--border); border-radius: 16px; padding: 16px; cursor: pointer; }
-        .list-card:hover{ outline: 2px solid var(--accent); }
+        .list-card{ background: var(--elev); border:1px solid var(--border); border-top: 4px solid var(--accent); border-radius: 16px; padding: 16px; cursor: pointer; transition: transform .12s ease, box-shadow .12s ease; }
+        .list-card:hover{ transform: translateY(-2px); box-shadow: 0 8px 24px -8px rgba(0,0,0,0.5), 0 0 0 2px var(--accent); }
+        .list-card.c1{ border-top-color: var(--accent-2); } .list-card.c1:hover{ box-shadow: 0 8px 24px -8px rgba(0,0,0,0.5), 0 0 0 2px var(--accent-2); }
+        .list-card.c2{ border-top-color: var(--pink); } .list-card.c2:hover{ box-shadow: 0 8px 24px -8px rgba(0,0,0,0.5), 0 0 0 2px var(--pink); }
+        .list-card.c3{ border-top-color: var(--success); } .list-card.c3:hover{ box-shadow: 0 8px 24px -8px rgba(0,0,0,0.5), 0 0 0 2px var(--success); }
+        .list-card.c4{ border-top-color: var(--warn); } .list-card.c4:hover{ box-shadow: 0 8px 24px -8px rgba(0,0,0,0.5), 0 0 0 2px var(--warn); }
                  .badge{ padding: 6px 10px; border:1px solid var(--border); border-radius: 999px; font-size: 12px; color: var(--muted); background: #1e293b; word-break: break-word }
         .headline{ font-size: 20px; margin-bottom: 12px; word-break: break-word }
+        .gradient-text{ background: linear-gradient(90deg, var(--accent), var(--accent-2) 60%, var(--pink)); -webkit-background-clip: text; background-clip: text; color: transparent; }
         .toolbar{ display:flex; gap:8px; flex-wrap: wrap; align-items:center }
         .big-checkbox input[type="checkbox"]{ width: 24px; height: 24px; accent-color: var(--accent); }
         .item{ display:flex; align-items:center; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; cursor: move; }
@@ -398,6 +406,9 @@ app.get('*', (_req, res) => {
         .item.dragging{ opacity: 0.5; }
         .item-label{ flex: 1; min-width: 0; word-break: break-word; cursor: text; }
         .item-label:hover{ color: var(--accent); }
+        .label-edit-input{ flex: 1 1 100%; min-width: 0; border-color: var(--accent); }
+        .label-edit-input:focus{ outline: none; box-shadow: 0 0 0 2px rgba(34,211,238,0.35); }
+        .label-edit-action{ flex-shrink: 0 }
         .drag-handle{ user-select: none; cursor: grab; }
         .drag-handle:active{ cursor: grabbing; }
                  .db-status { position: fixed; top: 12px; right: 12px; display: flex; align-items: center; gap: 6px; z-index: 10; background: rgba(11, 15, 20, 0.9); padding: 6px 8px; border-radius: 8px; }
@@ -410,6 +421,19 @@ app.get('*', (_req, res) => {
         .accent{ color: var(--accent) }
         .hidden{ display: none !important }
         .version{ margin-top: 8px; font-size: 11px; color: var(--muted); opacity: 0.8 }
+
+        /* Playful per-action button colors */
+        .btn-primary{ background: linear-gradient(135deg, var(--accent), #0ea5b7); color: #04222a; border-color: transparent; font-weight: 600; }
+        .btn-primary:hover{ filter: brightness(1.08); background: linear-gradient(135deg, var(--accent), #0ea5b7); }
+        .btn-accent2{ background: linear-gradient(135deg, var(--accent-2), #6d28d9); color: #fff; border-color: transparent; font-weight: 600; }
+        .btn-accent2:hover{ filter: brightness(1.1); background: linear-gradient(135deg, var(--accent-2), #6d28d9); }
+        .btn-success{ background: linear-gradient(135deg, var(--success), #059669); color: #04231a; border-color: transparent; font-weight: 600; }
+        .btn-success:hover{ filter: brightness(1.08); background: linear-gradient(135deg, var(--success), #059669); }
+        .btn-warn{ background: linear-gradient(135deg, var(--warn), #d97706); color: #2a1600; border-color: transparent; font-weight: 600; }
+        .btn-warn:hover{ filter: brightness(1.08); background: linear-gradient(135deg, var(--warn), #d97706); }
+        .btn-danger{ background: linear-gradient(135deg, var(--danger), #b91c1c); color: #fff; border-color: transparent; font-weight: 600; }
+        .btn-danger:hover{ filter: brightness(1.1); background: linear-gradient(135deg, var(--danger), #b91c1c); }
+        .item-label.checked{ color: var(--success); }
         
         /* Mobile-first responsive design */
         @media (max-width: 640px){
@@ -447,10 +471,10 @@ app.get('*', (_req, res) => {
 
     <div class="container">
         <div id="login" class="card" style="text-align:center">
-            <h2 style="margin-bottom:16px">🔐 Sign in</h2>
+            <h2 class="gradient-text" style="margin-bottom:16px">🔐 Sign in</h2>
             <div class="stack">
               <input type="password" id="password" placeholder="Password">
-              <button onclick="handleLogin()">Enter</button>
+              <button class="btn-primary" onclick="handleLogin()">Enter</button>
             </div>
             <div class="version">v${APP_VERSION}</div>
         </div>
@@ -461,9 +485,9 @@ app.get('*', (_req, res) => {
               <div class="card">
                 <div class="stack">
                   <div class="row">
-                    <h2 class="headline">📋 Lists</h2>
+                    <h2 class="headline gradient-text">📋 Lists</h2>
                     <div class="space"></div>
-                    <button onclick="logout()" style="background: var(--danger); border-color: var(--danger);">🚪 Logout</button>
+                    <button class="btn-danger" onclick="logout()">🚪 Logout</button>
                   </div>
                   <div class="stack">
                     <input id="newListName" placeholder="New list name">
@@ -541,7 +565,7 @@ app.get('*', (_req, res) => {
                         <option value="ZA">🇿🇦 South Africa</option>
                       </select>
                     </div>
-                    <button onclick="createList()">➕ Create List</button>
+                    <button class="btn-primary" onclick="createList()">➕ Create List</button>
                   </div>
                 </div>
               </div>
@@ -555,9 +579,9 @@ app.get('*', (_req, res) => {
                   <div class="row">
                     <button onclick="backToOverview()">⬅️ Back</button>
                     <div class="space"></div>
-                    <button id="editToggle" onclick="toggleEdit()">✏️ Edit</button>
-                    <button id="copyBtn" onclick="copyCurrentList()">📄 Copy</button>
-                    <button id="copyTextBtn" onclick="copyListText()">📋 Copy text</button>
+                    <button id="editToggle" class="btn-accent2" onclick="toggleEdit()">✏️ Edit</button>
+                    <button id="copyBtn" class="btn-success" onclick="copyCurrentList()">📄 Copy</button>
+                    <button id="copyTextBtn" class="btn-primary" onclick="copyListText()">📋 Copy text</button>
                   </div>
                   <h2 id="detailTitle" class="headline"></h2>
                   <div id="detailDates" class="badge"></div>
@@ -642,7 +666,7 @@ app.get('*', (_req, res) => {
                     </select>
                   </div>
                   <div class="row">
-                    <button onclick="saveEdits()" class="accent">💾 Save</button>
+                    <button onclick="saveEdits()" class="btn-primary">💾 Save</button>
                     <button onclick="toggleEdit()">Cancel</button>
                   </div>
                 </div>
@@ -653,9 +677,9 @@ app.get('*', (_req, res) => {
                   <input id="newItemLabel" placeholder="Add item (e.g., T-shirt)">
                   <div class="row">
                     <input id="newItemQty" type="number" min="1" value="1" placeholder="Qty">
-                    <button onclick="addItem(currentListId)">Add Item</button>
-                    <button id="hideCheckedBtn" type="button" onclick="toggleHideChecked()" title="Hide items you have already packed">📦 Hide packed</button>
-                    <button type="button" onclick="uncheckAll()" title="Uncheck every item in this list">↩️ Uncheck all</button>
+                    <button class="btn-primary" onclick="addItem(currentListId)">Add Item</button>
+                    <button id="hideCheckedBtn" class="btn-accent2" type="button" onclick="toggleHideChecked()" title="Hide items you have already packed">📦 Hide packed</button>
+                    <button class="btn-warn" type="button" onclick="uncheckAll()" title="Uncheck every item in this list">↩️ Uncheck all</button>
                   </div>
                 </div>
               </div>
