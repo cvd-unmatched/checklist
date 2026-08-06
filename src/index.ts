@@ -351,6 +351,14 @@ app.get('*', (_req, res) => {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Checklist App</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0f1419">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Checklist">
     <style>
                  :root{
            --bg: #0f1419;
@@ -432,6 +440,7 @@ app.get('*', (_req, res) => {
 </head>
 <body>
     <div class="db-status">
+        <button id="installBtn" class="hidden" onclick="installApp()" style="min-width:auto; padding:6px 10px; font-size:12px;">⬇️ Install</button>
         <div id="dbDot" class="dot orange"></div>
         <div class="db-label">DB</div>
     </div>
@@ -646,6 +655,7 @@ app.get('*', (_req, res) => {
                     <input id="newItemQty" type="number" min="1" value="1" placeholder="Qty">
                     <button onclick="addItem(currentListId)">Add Item</button>
                     <button id="hideCheckedBtn" type="button" onclick="toggleHideChecked()" title="Hide items you have already packed">📦 Hide packed</button>
+                    <button type="button" onclick="uncheckAll()" title="Uncheck every item in this list">↩️ Uncheck all</button>
                   </div>
                 </div>
               </div>

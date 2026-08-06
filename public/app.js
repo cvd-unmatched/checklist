@@ -139,6 +139,21 @@
   async function updateQuantity(itemId, quantity){ log('Item', 'Updating quantity for item ' + itemId + ' to ' + quantity); try{ var r = await fetch('/api/items/'+itemId,{ method:'PUT', headers:{'Content-Type':'application/json', Authorization:'Bearer '+token}, body: JSON.stringify({ quantity: parseInt(quantity) })}); if(await handleAuthError(r)) return; if(r.ok){ log('Item', 'Quantity updated successfully'); if(currentListId) loadItems(currentListId); } else { var error = await r.json().catch(function(){return{error:'Update failed'}}); log('Error', 'Failed to update quantity: ' + (error.error || 'Server error')); alert('Failed to update quantity: ' + (error.error || 'Server error')); } } catch(e){ log('Error', 'Failed to update quantity'); if (window.loggingEnabled) console.error('Failed to update quantity', e); alert('Failed to update quantity'); } }
   async function deleteItem(itemId){ if(!confirm('Delete this item?')) return; log('Delete', 'Deleting item ' + itemId); try{ var r = await fetch('/api/items/'+itemId,{ method:'DELETE', headers:{ Authorization:'Bearer '+token }}); if(await handleAuthError(r)) return; if(r.ok){ log('Delete', 'Item deleted successfully'); if(currentListId) loadItems(currentListId); } } catch(e){ log('Error', 'Failed to delete item'); if (window.loggingEnabled) console.error('Failed to delete item'); } }
 
+  async function uncheckAll(){
+    if(!currentListId) return;
+    var checkedItems = (currentItems || []).filter(function(i){ return i.checked; });
+    if(!checkedItems.length){ log('UI', 'Uncheck all: nothing to uncheck'); return; }
+    if(!confirm('Uncheck all ' + checkedItems.length + ' checked item(s)?')) return;
+    log('Item', 'Unchecking all items for list ' + currentListId);
+    try{
+      await Promise.all(checkedItems.map(function(i){
+        return fetch('/api/items/'+i.id,{ method:'PUT', headers:{'Content-Type':'application/json', Authorization:'Bearer '+token}, body: JSON.stringify({ checked:false }) });
+      }));
+      log('Item', 'All items unchecked');
+      await loadItems(currentListId);
+    } catch(e){ log('Error', 'Failed to uncheck all items'); if (window.loggingEnabled) console.error('Failed to uncheck all items', e); alert('Failed to uncheck all items'); await loadItems(currentListId); }
+  }
+
   // Drag and drop for reordering
   var draggedElement = null;
   function handleDragStart(e){ if(e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON'){ e.preventDefault(); return false; } draggedElement = e.currentTarget; e.currentTarget.style.opacity = '0.5'; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/html', e.currentTarget.innerHTML); }
@@ -148,8 +163,32 @@
   async function saveItemOrder(){ if(!currentListId) return; var items = Array.from(document.querySelectorAll('.item')); var itemIds = items.map(function(item){ return parseInt(item.getAttribute('data-item-id')); }); log('Reorder', 'Saving new item order'); try{ var r = await fetch('/api/lists/'+currentListId+'/items/reorder',{ method:'PUT', headers:{'Content-Type':'application/json', Authorization:'Bearer '+token}, body: JSON.stringify({ itemIds: itemIds })}); if(await handleAuthError(r)) return; if(r.ok){ log('Reorder', 'Item order saved successfully'); await loadItems(currentListId); } else { var error = await r.json().catch(function(){return{error:'Reorder failed'}}); log('Error', 'Failed to reorder items: ' + (error.error || 'Server error')); alert('Failed to reorder items: ' + (error.error || 'Server error')); await loadItems(currentListId); } } catch(e){ log('Error', 'Failed to reorder items'); if (window.loggingEnabled) console.error('Failed to reorder items', e); alert('Failed to reorder items'); await loadItems(currentListId); } }
 
   // Inline label editing
-  function startEditLabel(itemId){ var item = currentItems.find(function(x){ return x.id === itemId; }); if(!item) return; var labelEl = document.querySelector('.item-label[data-item-id="' + itemId + '"]'); if(!labelEl) return; var currentLabel = item.label; var input = document.createElement('input'); input.type = 'text'; input.value = currentLabel; input.style.cssText = 'flex: 1; min-width: 0; padding: 8px; background: #1e293b; color: var(--text); border: 1px solid var(--accent); border-radius: 8px; font-size: 16px;'; input.onblur = function(){ saveLabelEdit(itemId, input.value, labelEl); }; input.onkeydown = function(e){ if(e.key === 'Enter'){ input.blur(); } else if(e.key === 'Escape'){ labelEl.textContent = currentLabel; labelEl.style.display = ''; input.remove(); } }; labelEl.style.display = 'none'; labelEl.parentElement.insertBefore(input, labelEl); input.focus(); input.select(); }
-  async function saveLabelEdit(itemId, newLabel, labelEl){ if(!newLabel || newLabel.trim() === ''){ newLabel = currentItems.find(function(x){ return x.id === itemId; }).label; } newLabel = newLabel.trim(); log('Edit', 'Updating label for item ' + itemId + ' to: ' + newLabel); try{ var r = await fetch('/api/items/'+itemId,{ method:'PUT', headers:{'Content-Type':'application/json', Authorization:'Bearer '+token}, body: JSON.stringify({ label: newLabel })}); if(await handleAuthError(r)) return; if(r.ok){ labelEl.textContent = newLabel; labelEl.style.display = ''; var input = labelEl.previousElementSibling; if(input && input.tagName === 'INPUT'){ input.remove(); } log('Edit', 'Label updated successfully'); var item = currentItems.find(function(x){ return x.id === itemId; }); if(item){ item.label = newLabel; } } else { var error = await r.json().catch(function(){return{error:'Update failed'}}); log('Error', 'Failed to update label: ' + (error.error || 'Server error')); alert('Failed to update label: ' + (error.error || 'Server error')); await loadItems(currentListId); } } catch(e){ log('Error', 'Failed to update label'); if (window.loggingEnabled) console.error('Failed to update label', e); alert('Failed to update label'); await loadItems(currentListId); } }
+  function startEditLabel(itemId){
+    var item = currentItems.find(function(x){ return x.id === itemId; }); if(!item) return;
+    var labelEl = document.querySelector('.item-label[data-item-id="' + itemId + '"]'); if(!labelEl) return;
+    var currentLabel = item.label;
+    var itemRow = labelEl.closest('.item');
+    // The row is draggable="true" for reordering; on most browsers that hijacks mousedown
+    // on any child input and stops the caret from following clicks (only arrow keys work).
+    // Disabling drag on the row while editing fixes click-to-position-cursor.
+    if(itemRow){ itemRow.setAttribute('draggable', 'false'); }
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentLabel;
+    // flex-basis 100% forces the input onto its own full-width line so it isn't
+    // squeezed to a sliver next to the checkbox/qty/buttons on narrow mobile screens.
+    input.style.cssText = 'flex: 1 1 100%; min-width: 150px; padding: 10px; background: #1e293b; color: var(--text); border: 1px solid var(--accent); border-radius: 8px; font-size: 16px;';
+    input.onblur = function(){ saveLabelEdit(itemId, input.value, labelEl, itemRow); };
+    input.onkeydown = function(e){
+      if(e.key === 'Enter'){ input.blur(); }
+      else if(e.key === 'Escape'){ labelEl.textContent = currentLabel; labelEl.style.display = ''; input.remove(); if(itemRow){ itemRow.setAttribute('draggable', 'true'); } }
+    };
+    labelEl.style.display = 'none';
+    labelEl.parentElement.insertBefore(input, labelEl);
+    input.focus();
+    input.select();
+  }
+  async function saveLabelEdit(itemId, newLabel, labelEl, itemRow){ if(!newLabel || newLabel.trim() === ''){ newLabel = currentItems.find(function(x){ return x.id === itemId; }).label; } newLabel = newLabel.trim(); log('Edit', 'Updating label for item ' + itemId + ' to: ' + newLabel); try{ var r = await fetch('/api/items/'+itemId,{ method:'PUT', headers:{'Content-Type':'application/json', Authorization:'Bearer '+token}, body: JSON.stringify({ label: newLabel })}); if(await handleAuthError(r)) return; if(r.ok){ labelEl.textContent = newLabel; labelEl.style.display = ''; var input = labelEl.previousElementSibling; if(input && input.tagName === 'INPUT'){ input.remove(); } if(itemRow){ itemRow.setAttribute('draggable', 'true'); } log('Edit', 'Label updated successfully'); var item = currentItems.find(function(x){ return x.id === itemId; }); if(item){ item.label = newLabel; } } else { var error = await r.json().catch(function(){return{error:'Update failed'}}); log('Error', 'Failed to update label: ' + (error.error || 'Server error')); alert('Failed to update label: ' + (error.error || 'Server error')); if(itemRow){ itemRow.setAttribute('draggable', 'true'); } await loadItems(currentListId); } } catch(e){ log('Error', 'Failed to update label'); if (window.loggingEnabled) console.error('Failed to update label', e); alert('Failed to update label'); if(itemRow){ itemRow.setAttribute('draggable', 'true'); } await loadItems(currentListId); } }
 
   async function copyListText(){ if(!currentListId) return; try { var list = lists.find(function(x){ return x.id===currentListId }); if(!list){ alert('No list selected'); return; } if(!currentItems || !currentItems.length){ await loadItems(currentListId); }
     var header = (list.name || 'List') + '\n' + fmtRange(list && list.start_date, list && list.end_date) + '\n\n';
@@ -158,6 +197,38 @@
     if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(text); } else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); }
     log('Copy', 'Copied list to clipboard as text'); if (window.loggingEnabled) alert('Copied to clipboard');
   } catch(e){ log('Error', 'Failed to copy list to clipboard'); if (window.loggingEnabled) console.error('Failed to copy to clipboard', e); alert('Failed to copy'); } }
+
+  // PWA install prompt
+  var deferredInstallPrompt = null;
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    var btn = document.getElementById('installBtn');
+    if(btn) btn.classList.remove('hidden');
+    log('PWA', 'Install prompt available');
+  });
+  window.addEventListener('appinstalled', function(){
+    deferredInstallPrompt = null;
+    var btn = document.getElementById('installBtn');
+    if(btn) btn.classList.add('hidden');
+    log('PWA', 'App installed');
+  });
+  async function installApp(){
+    if(!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    var choice = await deferredInstallPrompt.userChoice;
+    log('PWA', 'Install prompt result: ' + (choice && choice.outcome));
+    deferredInstallPrompt = null;
+    var btn = document.getElementById('installBtn');
+    if(btn) btn.classList.add('hidden');
+  }
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('/sw.js').catch(function(e){
+        if (window.loggingEnabled) console.warn('Service worker registration failed', e);
+      });
+    });
+  }
 
   function logout(){
     log('Logout', 'User logging out');
@@ -312,6 +383,8 @@
   window.handleDragEnd = handleDragEnd;
   window.startEditLabel = startEditLabel;
   window.toggleHideChecked = toggleHideChecked;
+  window.uncheckAll = uncheckAll;
+  window.installApp = installApp;
   // Log that handlers are bound (only when enabled later)
   // This will be printed after LOGGING status is fetched
 
