@@ -1,5 +1,5 @@
 'use strict';
-const CACHE = 'checklist-shell-v1';
+const CACHE = 'checklist-shell-v2';
 const SHELL = ['/app.js', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', function (event) {
@@ -15,7 +15,9 @@ self.addEventListener('activate', function (event) {
   );
 });
 
-// Network-first for navigations/API, cache-first for the static shell assets.
+// Network-first for the app shell so a redeploy is picked up on the very next
+// load instead of being masked by a stale cache entry; cache is only the
+// offline fallback, not the primary source.
 self.addEventListener('fetch', function (event) {
   var req = event.request;
   if (req.method !== 'GET') return;
@@ -24,13 +26,11 @@ self.addEventListener('fetch', function (event) {
 
   if (SHELL.includes(url.pathname)) {
     event.respondWith(
-      caches.match(req).then(function (cached) {
-        return cached || fetch(req).then(function (res) {
-          var copy = res.clone();
-          caches.open(CACHE).then(function (cache) { cache.put(req, copy); });
-          return res;
-        });
-      })
+      fetch(req).then(function (res) {
+        var copy = res.clone();
+        caches.open(CACHE).then(function (cache) { cache.put(req, copy); });
+        return res;
+      }).catch(function () { return caches.match(req); })
     );
   }
 });
